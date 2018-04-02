@@ -61,9 +61,7 @@ class MainFrame(wx.Frame):
 
     def OnMouse(self, event):
         self.tx, self.ty = event.GetPosition()
-        .gitignore
-        support
-        plugins.gitignore support plugins
+
         if event.LeftDown():
             self.path.append([])
             self.path[-1].append((self.tx, self.ty))

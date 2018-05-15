@@ -1,142 +1,177 @@
 #!/usr/bin/env python
-#! -*- coding: utf-8 -*-
+
+# Author: Kwasi Mensah
+# Date: 7/11/2005
+#
+# This is a tutorial to show some of the more advanced things
+# you can do with Cg. Specifically, with Non Photo Realistic
+# effects like Toon Shading. It also shows how to implement
+# multiple buffers in Panda.
 
 from direct.showbase.ShowBase import ShowBase
+from panda3d.core import PNMImage, PNMImageHeader
 from panda3d.core import PandaNode, LightNode, TextNode
-from panda3d.core import Filename, NodePath
-from panda3d.core import PointLight, AmbientLight
-from panda3d.core import LightRampAttrib, AuxBitplaneAttrib
-from panda3d.core import CardMaker
-from panda3d.core import Shader, Texture
+from panda3d.core import Filename
+from panda3d.core import NodePath
+from panda3d.core import Shader
+from panda3d.core import LVecBase4
 from direct.task.Task import Task
 from direct.actor.Actor import Actor
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.BufferViewer import BufferViewer
-from direct.filter.CommonFilters import CommonFilters
-from direct.wxwidgets.WxPandaWindow import OpenGLPandaWindow
 import sys
 import os
-import wx
 
-class ToonMaker(ShowBase, OpenGLPandaWindow):
 
-    def __init__(self, *args, **kwargs):
+class ToonMaker(ShowBase):
+
+    def __init__(self):
         # Initialize the ShowBase class from which we inherit, which will
         # create a window and set up everything we need for rendering into it.
         ShowBase.__init__(self)
-        OpenGLPandaWindow.__init__(self, *args, **kwargs)
 
-        self.cam.node().getLens().setNear(10.0)
-        self.cam.node().getLens().setFar(200.0)
-        camera.setPos(0, -50, 0)
+        #self.disableMouse()
+        self.camera.setPos(0, -6, 2)
+        self.camLens.setNear(0.01)
+        self.camLens.setFov(50)
 
-        # Enable a 'light ramp' - this discretizes the lighting,
-        # which is half of what makes a model look like a cartoon.
-        # Light ramps only work if shader generation is enabled,
-        # so we call 'setShaderAuto'.
+        # Check video card capabilities.
+        if not self.win.getGsg().getSupportsBasicShaders():
+            print("Toon Shader: Video driver reports that Cg shaders are not supported.")
+            return
 
+        # This shader's job is to render the model with discrete lighting
+        # levels.  The lighting calculations built into the shader assume
+        # a single nonattenuating point light.
+
+        #tempnode = NodePath(PandaNode("temp node"))
+        #tempnode.setShader(loader.loadShader("shader/lightingGen.sha"))
+        #self.cam.node().setInitialState(tempnode.getState())
+
+        # This is the object that represents the single "light", as far
+        # the shader is concerned.  It's not a real Panda3D LightNode, but
+        # the shader doesn't care about that.
+
+        light = render.attachNewNode("light")
+        light.setPos(30, -50, 0)
+
+        # this call puts the light's nodepath into the render state.
+        # this enables the shader to access this light by name.
+
+        render.setShaderInput("light", light)
+
+        # The "normals buffer" will contain a picture of the model colorized
+        # so that the color of the model is a representation of the model's
+        # normal at that point.
+
+        normalsBuffer = self.win.makeTextureBuffer("normalsBuffer", 0, 0)
+        normalsBuffer.setClearColor(LVecBase4(0.5, 0.5, 0.5, 1))
+        self.normalsBuffer = normalsBuffer
+        normalsCamera = self.makeCamera(
+            normalsBuffer, lens=self.cam.node().getLens())
+        normalsCamera.node().setScene(render)
         tempnode = NodePath(PandaNode("temp node"))
-        tempnode.setAttrib(LightRampAttrib.makeSingleThreshold(0.5, 0.4))
-        tempnode.setShaderAuto()
-        self.cam.node().setInitialState(tempnode.getState())
+        tempnode.setShader(loader.loadShader("shader/normalGen.sha"))
+        normalsCamera.node().setInitialState(tempnode.getState())
 
-        # Use class 'CommonFilters' to enable a cartoon inking filter.
-        # This can fail if the video card is not powerful enough, if so,
-        # display an error and exit.
+        # what we actually do to put edges on screen is apply them as a texture to
+        # a transparent screen-fitted card
 
-        self.separation = 1  # Pixels
-        self.filters = CommonFilters(self.win, self.cam)
-        filterok = self.filters.setCartoonInk(separation=self.separation)
+        drawnScene = normalsBuffer.getTextureCard()
+        drawnScene.setTransparency(1)
+        drawnScene.setColor(1, 1, 1, 0)
+        drawnScene.reparentTo(render2d)
+        self.drawnScene = drawnScene
 
-        # Load a dragon model and animate it.
-        self.character = Actor()
-        self.character.loadModel('panda3d_samples/cartoon-shader/models/nik-dragon')
-        self.character.reparentTo(render)
-        self.character.loadAnims({'win': 'panda3d_samples/cartoon-shader/models/nik-dragon'})
-        self.character.loop('win')
-        self.character.hprInterval(15, (360, 0, 0)).loop()
+        # this shader accepts, as input, the picture from the normals buffer.
+        # it compares each adjacent pixel, looking for discontinuities.
+        # wherever a discontinuity exists, it emits black ink.
 
-        # Create a non-attenuating point light and an ambient light.
-        plightnode = PointLight("point light")
-        plightnode.setAttenuation((1, 0, 0))
-        plight = render.attachNewNode(plightnode)
-        plight.setPos(30, -50, 0)
-        alightnode = AmbientLight("ambient light")
-        alightnode.setColor((0.8, 0.8, 0.8, 1))
-        alight = render.attachNewNode(alightnode)
-        render.setLight(alight)
-        render.setLight(plight)
+        self.separation = 0.001
+        self.cutoff = 0.3
+        inkGen = loader.loadShader("shader/inkGen.sha")
+        drawnScene.setShader(inkGen)
+        drawnScene.setShaderInput("separation", LVecBase4(self.separation, 0, self.separation, 0))
+        drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-        # Panda contains a built-in viewer that lets you view the
-        # results of all render-to-texture operations.  This lets you
-        # see what class CommonFilters is doing behind the scenes.
+        # Panda contains a built-in viewer that lets you view the results of
+        # your render-to-texture operations.  This code configures the viewer.
+
         self.accept("v", self.bufferViewer.toggleEnable)
-        self.accept("V", self.bufferViewer.toggleEnable)
         self.bufferViewer.setPosition("llcorner")
-        self.accept("s", self.filters.manager.resizeBuffers)
+
+        # Load a dragon model and start its animation.
+        self.character = Actor()
+        self.character.loadModel('models/miku/tda_miku')
+        self.character.reparentTo(render)
+        self.character.loadAnims({'win': 'models/miku/tda_miku-Anim0'})
+        self.character.play('win')
+        self.character.pose('win', 1)
 
         # These allow you to change cartooning parameters in realtime
         self.accept("escape", sys.exit, [0])
         self.accept("arrow_up", self.increaseSeparation)
         self.accept("arrow_down", self.decreaseSeparation)
+        self.accept("arrow_left", self.increaseCutoff)
+        self.accept("arrow_right", self.decreaseCutoff)
+        self.accept("s", self.saveImage)
+        self.accept("p", self.play)
+        self.accept("o", self.stop)
+        self.accept("n", self.forward)
+        self.accept("b", self.rewind)
+        self.accept("l", self.lookAt)
 
     def increaseSeparation(self):
         self.separation = self.separation * 1.11111111
         print("separation: %f" % (self.separation))
-        self.filters.setCartoonInk(separation=self.separation)
+        self.drawnScene.setShaderInput(
+            "separation", LVecBase4(self.separation, 0, self.separation, 0))
 
     def decreaseSeparation(self):
         self.separation = self.separation * 0.90000000
         print("separation: %f" % (self.separation))
-        self.filters.setCartoonInk(separation=self.separation)
+        self.drawnScene.setShaderInput(
+            "separation", LVecBase4(self.separation, 0, self.separation, 0))
 
-ID_MAINFRAME = wx.NewId()
+    def increaseCutoff(self):
+        self.cutoff = self.cutoff * 1.11111111
+        print("cutoff: %f" % (self.cutoff))
+        self.drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-class MainFrame(wx.Frame):
+    def decreaseCutoff(self):
+        self.cutoff = self.cutoff * 0.90000000
+        print("cutoff: %f" % (self.cutoff))
+        self.drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-    def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, ID_MAINFRAME, title=title, size=(500, 400))
+    def saveImage(self):
+        self.graphicsEngine.renderFrame()
+        image = PNMImage()
+        dr = self.camNode.getDisplayRegion(0)
+        dr.getScreenshot(image)
+        image.write(Filename('testImg.png'))
 
-        self.canvas = ToonMaker(self, size=(500, 400))
-        sz=wx.BoxSizer(wx.VERTICAL)
-        sz.Add(self.canvas, wx.ID_ANY, wx.EXPAND)
-        self.SetSizer(sz)
+    def play(self):
+        frame = self.character.getCurrentFrame('win')
+        self.character.play('win', fromFrame=frame)
 
-        self.tx, self.ty = 0, 0
+    def stop(self):
+        frame = self.character.getCurrentFrame('win')
+        self.character.pose('win', frame)
 
-        self.menu_file = wx.Menu()
-        self.menu_file.Append(wx.ID_ABOUT, '&About', 'Informations')
-        self.menu_file.AppendSeparator()
-        self.menu_file.Append(wx.ID_EXIT, 'E&xit', 'Exit program')
-        self.menu_bar = wx.MenuBar()
-        self.menu_bar.Append(self.menu_file, 'ファイル')
+    def forward(self):
+        frame = self.character.getCurrentFrame('win') + 10
+        frame = min(frame, self.character.getNumFrames('win'))
+        self.character.pose('win', frame)
 
-        self.Bind(wx.EVT_MENU, self.SelectMenu)
-        self.Bind(wx.EVT_MENU, self.OnAbout, id=wx.ID_ABOUT)
-        self.Bind(wx.EVT_MENU, self.OnExit, id=wx.ID_EXIT)
-        self.Bind(wx.EVT_CLOSE, self.OnExit)
+    def rewind(self):
+        frame = self.character.getCurrentFrame('win') - 10
+        frame = max(0, frame)
+        self.character.pose('win', frame)
 
-        self.SetMenuBar(self.menu_bar)
-        self.SetBackgroundColour("WHITE")
+    def lookAt(self):
+        geom = self.character.getGeomNode()
+        self.camera.lookAt(self.character.getGeomNode().getPos()+(0, 0, 3))
 
-    def OnAbout(self,event):
-        dlg = wx.MessageDialog(self, 'by Kazushi Mukaiyama\nFuture University Hakodate, 2018', 'My Panda', wx.OK)
-        dlg.ShowModal()
-        dlg.Destroy()
-
-    def OnExit(self, event):
-        print 'good bye'
-        sys.exit()
-
-    def SelectMenu(self, event):
-        id = event.GetId()
-
-
-if __name__ == "__main__":
-    app = wx.App()
-    mainFrame = MainFrame(None, 'Drawing Canvas')
-    mainFrame.Show()
-    app.SetTopWindow(mainFrame)
-    app.MainLoop()
-
+t = ToonMaker()
+t.run()

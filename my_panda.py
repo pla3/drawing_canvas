@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#! -*- coding: utf-8 -*-
 
 # Author: Kwasi Mensah
 # Date: 7/11/2005
@@ -36,6 +37,8 @@ class ToonMaker(ShowBase):
         self.camLens.setNear(0.01)
         self.camLens.setFov(50)
 
+        self.setBackgroundColor(1, 1, 1)
+
         # Check video card capabilities.
         if not self.win.getGsg().getSupportsBasicShaders():
             print("Toon Shader: Video driver reports that Cg shaders are not supported.")
@@ -44,67 +47,54 @@ class ToonMaker(ShowBase):
         # This shader's job is to render the model with discrete lighting
         # levels.  The lighting calculations built into the shader assume
         # a single nonattenuating point light.
-
-        #tempnode = NodePath(PandaNode("temp node"))
-        #tempnode.setShader(loader.loadShader("shader/lightingGen.sha"))
-        #self.cam.node().setInitialState(tempnode.getState())
+        tempnode = NodePath(PandaNode("temp node"))
+        tempnode.setShader(self.loader.loadShader("shader/lightingGen.sha"))
+        self.cam.node().setInitialState(tempnode.getState())
 
         # This is the object that represents the single "light", as far
         # the shader is concerned.  It's not a real Panda3D LightNode, but
         # the shader doesn't care about that.
-
-        light = render.attachNewNode("light")
+        light = self.render.attachNewNode("light")
         light.setPos(30, -50, 0)
 
         # this call puts the light's nodepath into the render state.
         # this enables the shader to access this light by name.
-
-        render.setShaderInput("light", light)
+        self.render.setShaderInput("light", light)
 
         # The "normals buffer" will contain a picture of the model colorized
         # so that the color of the model is a representation of the model's
         # normal at that point.
-
         normalsBuffer = self.win.makeTextureBuffer("normalsBuffer", 0, 0)
         normalsBuffer.setClearColor(LVecBase4(0.5, 0.5, 0.5, 1))
         self.normalsBuffer = normalsBuffer
         normalsCamera = self.makeCamera(
             normalsBuffer, lens=self.cam.node().getLens())
-        normalsCamera.node().setScene(render)
+        normalsCamera.node().setScene(self.render)
         tempnode = NodePath(PandaNode("temp node"))
-        tempnode.setShader(loader.loadShader("shader/normalGen.sha"))
+        tempnode.setShader(self.loader.loadShader("shader/normalGen.sha"))
         normalsCamera.node().setInitialState(tempnode.getState())
-
         # what we actually do to put edges on screen is apply them as a texture to
         # a transparent screen-fitted card
-
         drawnScene = normalsBuffer.getTextureCard()
         drawnScene.setTransparency(1)
         drawnScene.setColor(1, 1, 1, 0)
-        drawnScene.reparentTo(render2d)
+        drawnScene.reparentTo(self.render2d)
         self.drawnScene = drawnScene
 
         # this shader accepts, as input, the picture from the normals buffer.
         # it compares each adjacent pixel, looking for discontinuities.
         # wherever a discontinuity exists, it emits black ink.
-
-        self.separation = 0.001
+        self.separation = 0.00065
         self.cutoff = 0.3
-        inkGen = loader.loadShader("shader/inkGen.sha")
+        inkGen = self.loader.loadShader("shader/inkGen.sha")
         drawnScene.setShader(inkGen)
         drawnScene.setShaderInput("separation", LVecBase4(self.separation, 0, self.separation, 0))
         drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-        # Panda contains a built-in viewer that lets you view the results of
-        # your render-to-texture operations.  This code configures the viewer.
-
-        self.accept("v", self.bufferViewer.toggleEnable)
-        self.bufferViewer.setPosition("llcorner")
-
-        # Load a dragon model and start its animation.
+        # Load a model and start its animation.
         self.character = Actor()
         self.character.loadModel('models/miku/tda_miku')
-        self.character.reparentTo(render)
+        self.character.reparentTo(self.render)
         self.character.loadAnims({'win': 'models/miku/tda_miku-Anim0'})
         self.character.play('win')
         self.character.pose('win', 1)

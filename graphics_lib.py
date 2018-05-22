@@ -4,6 +4,8 @@
 import wx
 import numpy as np
 import math
+from line_simplification import *
+
 np.seterr(divide='ignore', invalid='ignore')
 
 class InkPen:
@@ -37,7 +39,9 @@ class InkPen:
         # make spine of curve
         bezier = Bezier()
         bezier.make(self.pos, cp, p)
-        bezier.simplify()
+
+        #bezier.simplify()
+        bezier.points = ramerdouglas(bezier.points, dist=1.2)
 
         # make ink-pressured outline
         outline_points = []
@@ -128,7 +132,7 @@ class Bezier:
 
         tol2 = flatness * flatness  # tolerance squared
         vt = [None] * n
-        mk = [0] * n;
+        mk = [0] * n
 
         # STAGE 1.  Vertex Reduction within tolerance of prior vertex cluster
         vt[0] = self.points[0]  # start at the beginning
@@ -146,7 +150,7 @@ class Bezier:
             k = k + 1
 
         # STAGE 2.  Douglas-Peucker polyline simplification
-        mk[0] = mk[k - 1] = 1; # mark the first and last vertices
+        mk[0] = mk[k - 1] = 1 # mark the first and last vertices
         self.simplifyDP(flatness, vt, 0, k - 1, mk)
 
         # copy marked vertices to the output simplified polyline

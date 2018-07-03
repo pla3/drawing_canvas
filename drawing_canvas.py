@@ -4,8 +4,12 @@
 import sys
 import wx
 from graphics_lib import InkPen
+from skimage.morphology import skeletonize
+from line_segmentation import *
+from line_simplification import *
 
 ID_MAINFRAME = wx.NewId()
+ID_FILE_LOAD = wx.NewId()
 ID_FILE_SAVE = wx.NewId()
 
 class MainFrame(wx.Frame):
@@ -19,6 +23,7 @@ class MainFrame(wx.Frame):
         self.menu_file = wx.Menu()
         self.menu_file.Append(wx.ID_ABOUT, '&About', 'Informations')
         self.menu_file.AppendSeparator()
+        self.menu_file.Append(ID_FILE_LOAD, '読込\tCtrl+O')
         self.menu_file.Append(ID_FILE_SAVE, '保存\tCtrl+S')
         self.menu_file.Append(wx.ID_EXIT, 'E&xit', 'Exit program')
         self.menu_bar = wx.MenuBar()
@@ -36,14 +41,16 @@ class MainFrame(wx.Frame):
         self.SetBackgroundColour("WHITE")
         self.OnSize(None)
 
-    def OnAbout(self,event):
+    def OnAbout(self, event):
         dlg = wx.MessageDialog(self, 'by Kazushi Mukaiyama\nFuture University Hakodate, 2018', 'Drawing Canvas', wx.OK)
         dlg.ShowModal()
         dlg.Destroy()
 
     def SelectMenu(self, event):
         id = event.GetId()
-        if id == ID_FILE_SAVE:
+        if id == ID_FILE_LOAD:
+            self._drawSkelton()
+        elif id == ID_FILE_SAVE:
             print 'saved'
             self.Save()
 
@@ -93,13 +100,46 @@ class MainFrame(wx.Frame):
         sdc = wx.SVGFileDC('test.svg', width=size.width, height=size.height)
         self._draw(sdc)
 
+    def _drawSkelton(self):
+        # load an image
+        img = cv2.imread('testImg_mikuface.png', -1)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        img = cv2.bitwise_not(img)
+        h, w = img.shape[:2]
+        self.SetSize(wx.Size(w, h))
+
+        # perform skeletonization
+        skeleton = skeletonize(img / 255)  # 0-255 -> 0-1
+        img_thin = skeleton.astype(np.uint8) * 255
+        dstPts = divideBranchedChain(img_thin.ravel(), w, h, False)
+
+        # simplify points
+        dstPts_simplified = []
+        for pts in dstPts:
+            if len(pts) > 12:
+                simplified = ramerdouglas(pts, dist=1.4)
+                u = np.array(simplified[-1]) - np.array(simplified[0])
+                if np.linalg.norm(u) > 15.0: dstPts_simplified.append(simplified)
+
+        self.path = dstPts_simplified
+        self.Repaint()
+
+        bdc = wx.BufferedDC(wx.ClientDC(self), self.buffer)
+        for i, pts in enumerate(dstPts_simplified):
+            color = [0, 0, 0]
+            color[i % 3] = 255
+            bdc.SetPen(wx.Pen(color, 1.0))
+            bdc.DrawLines(pts)
+
+
     def _draw(self, dc):
         #inkPen_line = InkPen(bdc, wx.Pen('black', 1))
         #for line in self.path:
         #    inkPen_line.moveTo(line[0])
         #    for i in range(1, len(line)):
         #        inkPen_line.lineTo(line[i])
-        inkPen = InkPen(dc, wx.Pen('black', 4.0))
+        inkPen = InkPen(dc, wx.Pen('black', 3.5))
         for line in self.path:
             inkPen.moveTo(line[0])
             for i in range(1, len(line)):

@@ -21,9 +21,10 @@ void vshader(float4 vtx_position   : POSITION,
 
 void fshader(float4 l_brite     : TEXCOORD0, 
              float4 l_color     : COLOR,
+             uniform float4x4 attr_material,
              out float4 o_color : COLOR)
 {
   if (l_brite.x<0.5) l_brite=0.8;
   else l_brite=1.2;
-  o_color=l_brite * 0; //l_color;
+  o_color= 1.2 * attr_material[0]; //l_brite * l_color; tricky ambient light is hi(white) and set its light of material 0.0
 }

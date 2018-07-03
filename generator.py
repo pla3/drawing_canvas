@@ -17,6 +17,7 @@ from panda3d.core import NodePath
 from panda3d.core import Shader
 from panda3d.core import LVecBase4, Point2, Point3
 from panda3d.core import Camera
+from panda3d.core import deg2Rad
 from direct.task.Task import Task
 from direct.actor.Actor import Actor
 from direct.gui.OnscreenText import OnscreenText
@@ -34,31 +35,10 @@ class ToonMaker(ShowBase):
         # create a window and set up everything we need for rendering into it.
         ShowBase.__init__(self)
 
-        '''
-        cam1 = Camera('cam1')
-        cam1.getLens().setNear(0.01)
-        cam1.getLens().setFov(50)
-        cam1.showFrustum()
-        camera1 = self.render.attachNewNode(cam1)
-        camera1.setName('camera1')
-        camera1.setPos(0, -6, 3)
-
-        cam2 = Camera('cam2')
-        cam2.getLens().setNear(0.01)
-        cam2.getLens().setFov(50)
-        #cam2.showFrustum()
-        camera2 = self.render.attachNewNode(cam2)
-        camera2.setName('camera2')
-        camera2.setPos(0, -6, 3)
-        '''
-
         self.disableMouse()
-        #self.cam = camera2
-        #self.lens = self.cam.node().getLens()
-        self.camera.setPos(0, -6, 3.2)
+        self.camera.setPos(0, 0, 0)
         self.camLens.setNearFar(0.01, 1000.0)
         self.camLens.setFov(50)
-        #self.cam.node().setLodScale(math.tan(math.radians(100.0 * 0.5)))
 
         self.setBackgroundColor(1, 1, 1)
 
@@ -114,14 +94,37 @@ class ToonMaker(ShowBase):
         drawnScene.setShaderInput("separation", LVecBase4(self.separation, 0, self.separation, 0))
         drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-        # Load a model and start its animation.
-        self.character = Actor()
-        #self.character.loadModel('models/miku/tda_miku')
-        #self.character.loadAnims({'anim': 'models/miku/tda_miku-Anim0'})
-        self.character.loadModel('models/dekiruo/dekiruo')
-        self.character.loadAnims({'anim': 'models/dekiruo/dekiruo-Anim_anger'})
-        self.character.reparentTo(self.render)
-        self.character.ls()
+        self.label1 = OnscreenText(text='P_1', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
+        self.label2 = OnscreenText(text='P_2', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
+        self.label3 = OnscreenText(text='P1', fg=(0, 0, 1, 1), pos=(0, 0), scale=.05, mayChange=1)
+        self.label4 = OnscreenText(text='P2', fg=(0, 0, 1, 1), pos=(0, 0), scale=.05, mayChange=1)
+        self.info3 = OnscreenText(text='camera:', fg=(1, 0, 0, 1), pos=(-1, -0.2), scale=.05, mayChange=1)
+
+        # Load a model
+        #self.smiley = self.loader.loadModel('smiley')
+        #self.smiley.reparentTo(self.render)
+        #self.smiley.setPos(0, 10.0, 0)
+
+        self.character = [Actor(), Actor()]
+
+        self.character[0].loadModel('models/dekiruo/dekiruo')
+        self.character[0].reparentTo(self.render)
+        self.character[0].loadAnims({'anim': 'models/dekiruo/dekiruo-Anim_anger'})
+        self.character[0].play('anim')
+        self.character[0].pose('anim', 0)
+
+        self.character[1].loadModel('models/dekiruo/dekinaio')
+        self.character[1].reparentTo(self.render)
+
+        #print self.character.getNumFrames('anim')
+        #self.character.setHpr(0.0, 0.0, 0.0) # front
+        #self.character.setHpr(-45.0, 0.0, 0.0) # left
+        #self.character[0].setHpr(45.0, 0.0, 0.0) # right
+        self.character[0].setHpr(-45.0, 0.0, 0.0) # left
+        self.character[1].setHpr(45.0, 0.0, 0.0) # right
+
+        # check model info
+        #self.character.ls()
         #self.character.listJoints()
         #node = self.character.find('**/*modelRoot')
         #geom_node = node.getChildren()[0].node()
@@ -129,28 +132,20 @@ class ToonMaker(ShowBase):
         #for child in node.getChildren():
         #    print child
 
-        self.character.play('anim')
-        self.character.pose('anim', 0)
+        c0_p1 = (0.1, -0.1)
+        c0_p2 = (0.1, 0.2)
+        c1_p1 = (-0.5, -0.1)
+        c1_p2 = (-0.5, 0.2)
 
-        # Create smiley's node to indicate 3d points
-        self.smileyActor1 = self.render.attachNewNode('SmileyActorNode1')
-        self.smileyActor2 = self.render.attachNewNode('SmileyActorNode2')
-        smiley = self.loader.loadModel('smiley')
-        smiley.setScale(0.01, 0.01, 0.01)
-        smiley.instanceTo(self.smileyActor1)
-        smiley.instanceTo(self.smileyActor2)
+        self.updateNamePos(self.character[0])
+        self.fit(self.character[0], c0_p1, c0_p2)
+        self.updateNamePos(self.character[1])
+        self.fit(self.character[1], c1_p1, c1_p2)
 
-        n1 = self.character.exposeJoint(None, "modelRoot", "Eyes")
-        n2 = self.character.exposeJoint(None, "modelRoot", "Head")
-
-        self.label1 = OnscreenText(text='P1', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.label2 = OnscreenText(text='P2', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.info1 = OnscreenText(text='dist3d:', fg=(1, 0, 0, 1), pos=(-1, 0), scale=.05, mayChange=1)
-        self.info2 = OnscreenText(text='dist2d:', fg=(1, 0, 0, 1), pos=(-1, -0.1), scale=.05, mayChange=1)
-        self.info3 = OnscreenText(text='camera:', fg=(1, 0, 0, 1), pos=(-1, -0.2), scale=.05, mayChange=1)
-
-        self.taskMgr.add(self.lookAt, 'lookAt', extraArgs=[n1, n2])
-        self.taskMgr.add(self.updateNamePos, 'name pos update', extraArgs=[n1, n2])
+        #self.taskMgr.add(self.updateNamePos, 'name pos update 0', extraArgs=[self.character[0]])
+        #self.taskMgr.add(self.fit, 'fit pos update 0', extraArgs=[self.character[0], c0_p1, c0_p2])
+        #self.taskMgr.add(self.updateNamePos, 'name pos update 1', extraArgs=[self.character[1]])
+        #self.taskMgr.add(self.fit, 'fit pos update 1', extraArgs=[self.character[1], c1_p1, c1_p2])
 
         # These allow you to change cartooning parameters in realtime
         self.accept("escape", sys.exit, [0])
@@ -158,28 +153,6 @@ class ToonMaker(ShowBase):
         self.accept("arrow_down", self.camera_b) #self.decreaseSeparation)
         self.accept("arrow_left", self.camera_l) #self.increaseCutoff)
         self.accept("arrow_right", self.camera_r) #self.decreaseCutoff)
-        self.accept("s", self.saveImage)
-        self.accept("p", self.play)
-        self.accept("o", self.stop)
-        self.accept("n", self.forward)
-        self.accept("b", self.rewind)
-        self.accept("l", self.lookAt)
-        self.accept("h", self.hide)
-        self.accept("1", self.cam_closeup)
-        self.accept("2", self.cam_bustshot)
-        self.accept("3", self.cam_longshot)
-
-    def decide_camera_distance(self, face_length):
-        pass #顔の大きさが決まったら対象からカメラの距離を返す。TODO
-
-    def cam_closeup(self):
-        self.camera.setPos(self.render, (0, -1.0, 3.2))
-
-    def cam_bustshot(self):
-        self.camera.setPos(self.render, (0, -2.0, 3.2))
-
-    def cam_longshot(self):
-        self.camera.setPos(self.render, (0, -10.0, 3.2))
 
     def camera_f(self):
         pos = self.camera.getPos(self.render)
@@ -219,43 +192,6 @@ class ToonMaker(ShowBase):
         print("cutoff: %f" % (self.cutoff))
         self.drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-    def saveImage(self):
-        self.graphicsEngine.renderFrame()
-        image = PNMImage()
-        dr = self.camNode.getDisplayRegion(0)
-        dr.getScreenshot(image)
-        image.write(Filename('testImg.png'))
-
-    def play(self):
-        frame = self.character.getCurrentFrame('anim')
-        self.character.play('anim', fromFrame=frame)
-
-    def stop(self):
-        frame = self.character.getCurrentFrame('anim')
-        self.character.pose('anim', frame)
-
-    def forward(self):
-        frame = self.character.getCurrentFrame('anim') + 10
-        frame = min(frame, self.character.getNumFrames('anim'))
-        self.character.pose('anim', frame)
-
-    def rewind(self):
-        frame = self.character.getCurrentFrame('anim') - 10
-        frame = max(0, frame)
-        self.character.pose('anim', frame)
-
-    def lookAt(self, node1, node2):
-        pos1 = node1.getPos(self.render)
-        pos2 = node2.getPos(self.render)
-        self.camera.lookAt((pos1 + pos2) / 2.0, (0, 0, 1))
-        return Task.cont
-
-    def hide(self):
-        if self.character.isHidden():
-            self.character.show()
-        else:
-            self.character.hide()
-
     def map3dToAspect2d(self, node, point):
         """Maps the indicated 3-d point (a Point3), which is relative to
         the indicated NodePath, to the corresponding point in the aspect2d
@@ -274,40 +210,81 @@ class ToonMaker(ShowBase):
         return a2d
 
 
-    def updateNamePos(self, node1, node2):
-        # show 3d points
-        self.smileyActor1.setPos(node1.getPos(self.render))
-        self.smileyActor2.setPos(node2.getPos(self.render))
+    def updateNamePos(self, c):
+        #bound = c.getBounds()
+        #r = bound.getRadius()
+        #cp = c.getPos(self.render)
+        #p1 = cp + Point3(0.0, 0.0, -r)
+        #p2 = cp + Point3(0.0, 0.0, r)
+        n1 = c.exposeJoint(None, "modelRoot", "Head")
+        n2 = c.exposeJoint(None, "modelRoot", "Eyes")
+        p1 = n1.getPos(self.render)
+        p2 = n2.getPos(self.render)
 
         # show 2d points
-        pos1 = self.map3dToAspect2d(self.render, node1.getPos(self.render))
+        pos1 = self.map3dToAspect2d(self.render, p1)
         if pos1 == None:
             self.label1.hide()
         else:
             self.label1['pos'] = (pos1[0], pos1[2])
             self.label1.show()
-        pos2 = self.map3dToAspect2d(self.render, node2.getPos(self.render))
+        pos2 = self.map3dToAspect2d(self.render, p2)
         if pos2 == None:
             self.label2.hide()
         else:
             self.label2['pos'] = (pos2[0], pos2[2])
             self.label2.show()
 
-        dist3dc = (node2.getPos(self.render)-node1.getPos(self.render)).length()
-        dist3d = node2.getPos(node1).length()
-        self.info1['text'] = 'dist3d: '+ str(dist3d)
-
-        if pos1 != None and pos2 != None:
-            dist2d = (pos2-pos1).length()
-            dist_cam = 4.0 * (dist3d / dist2d)
-        else:
-            dist2d = None
-            dist_cam = None
-        self.info2['text'] = 'dist2d: '+ str(dist2d)
-
         cam_pos = self.camera.getPos()
-        self.info3['text'] = 'camera: ' + str(cam_pos) + ' dist_cam: ' + str(dist_cam)
-        # -10.0 <-> -1.0
+        self.info3['text'] = 'camera: ' + str(cam_pos)
+
+        return Task.cont
+
+    def fit(self, c, p1, p2):
+        #bound = c.getBounds()
+        #r = bound.getRadius()
+        #cp = c.getPos(self.render)
+        #offset = Point3(0.0, r, 0.0)
+        #dist3d  = r * 2.0
+        n1 = c.exposeJoint(None, "modelRoot", "Head")
+        n2 = c.exposeJoint(None, "modelRoot", "Eyes")
+        n_root = c.exposeJoint(None, "modelRoot", "ParentNode")
+        offset = n_root.getPos(n1)
+        dist3d = n2.getPos(n1).length()
+
+        if p1[0] != 0.0:
+            hfov = self.camLens.getHfov()
+            w = math.fabs(self.a2dRight)
+            a = p1[0]
+            Q = math.fabs(p2[1] - p1[1])
+            O = dist3d
+            n = p1[1] * O / Q
+            A = a * O / Q
+            theta = (hfov / 2.0) * (a / w)
+            d = A / math.tan(deg2Rad(theta))
+            p_1 = Point3(A, d, n)
+            p_2 = Point3(A, d, n + O)
+            p = Point3(A, d, n + offset[1])
+        else:
+            vfov = self.camLens.getVfov()
+            h = math.fabs(self.a2dTop)
+            theta = (vfov / 2.0) * (p1[1] / h)
+            Q = math.fabs(p2[1] - p1[1])
+            O = dist3d
+            n = p1[1] * O / Q
+            d = n / math.tan(deg2Rad(theta))
+            p_1 = Point3(p1[0], d, p1[1])
+            p_2 = Point3(p2[0], d, p2[1])
+            p = Point3(p1[0], d, n + offset[1])
+
+
+        c.setPos(p)
+
+        # show 2d points
+        self.label3['pos'] = (p1[0], p1[1])
+        self.label3.show()
+        self.label4['pos'] = (p2[0], p2[1])
+        self.label4.show()
 
         return Task.cont
 

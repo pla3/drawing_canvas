@@ -23,9 +23,14 @@ from direct.actor.Actor import Actor
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.BufferViewer import BufferViewer
+from pandac.PandaModules import LineSegs
 import sys
 import os
 import math
+import random
+from lib_comic_info import Panel, ComicInfo
+import cv2
+import numpy as np
 
 
 class ToonMaker(ShowBase):
@@ -42,31 +47,19 @@ class ToonMaker(ShowBase):
 
         self.setBackgroundColor(1, 1, 1)
 
-        # Check video card capabilities.
         if not self.win.getGsg().getSupportsBasicShaders():
             print("Toon Shader: Video driver reports that Cg shaders are not supported.")
             return
 
-        # This shader's job is to render the model with discrete lighting
-        # levels.  The lighting calculations built into the shader assume
-        # a single nonattenuating point light.
         tempnode = NodePath(PandaNode("temp node"))
         tempnode.setShader(self.loader.loadShader("shader/lightingGen.sha"))
         self.cam.node().setInitialState(tempnode.getState())
 
-        # This is the object that represents the single "light", as far
-        # the shader is concerned.  It's not a real Panda3D LightNode, but
-        # the shader doesn't care about that.
         light = self.render.attachNewNode("light")
         light.setPos(30, -50, 0)
 
-        # this call puts the light's nodepath into the render state.
-        # this enables the shader to access this light by name.
         self.render.setShaderInput("light", light)
 
-        # The "normals buffer" will contain a picture of the model colorized
-        # so that the color of the model is a representation of the model's
-        # normal at that point.
         normalsBuffer = self.win.makeTextureBuffer("normalsBuffer", 0, 0)
         normalsBuffer.setClearColor(LVecBase4(0.5, 0.5, 0.5, 1))
         self.normalsBuffer = normalsBuffer
@@ -76,17 +69,13 @@ class ToonMaker(ShowBase):
         tempnode = NodePath(PandaNode("temp node"))
         tempnode.setShader(self.loader.loadShader("shader/normalGen.sha"))
         normalsCamera.node().setInitialState(tempnode.getState())
-        # what we actually do to put edges on screen is apply them as a texture to
-        # a transparent screen-fitted card
+
         drawnScene = normalsBuffer.getTextureCard()
         drawnScene.setTransparency(1)
         drawnScene.setColor(1, 1, 1, 0)
         drawnScene.reparentTo(self.render2d)
         self.drawnScene = drawnScene
 
-        # this shader accepts, as input, the picture from the normals buffer.
-        # it compares each adjacent pixel, looking for discontinuities.
-        # wherever a discontinuity exists, it emits black ink.
         self.separation = 0.00065
         self.cutoff = 0.3
         inkGen = self.loader.loadShader("shader/inkGen.sha")
@@ -94,65 +83,113 @@ class ToonMaker(ShowBase):
         drawnScene.setShaderInput("separation", LVecBase4(self.separation, 0, self.separation, 0))
         drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
 
-        self.label1 = OnscreenText(text='P_1', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.label2 = OnscreenText(text='P_2', fg=(1, 0, 0, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.label3 = OnscreenText(text='P1', fg=(0, 0, 1, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.label4 = OnscreenText(text='P2', fg=(0, 0, 1, 1), pos=(0, 0), scale=.05, mayChange=1)
-        self.info3 = OnscreenText(text='camera:', fg=(1, 0, 0, 1), pos=(-1, -0.2), scale=.05, mayChange=1)
-
         # Load a model
         #self.smiley = self.loader.loadModel('smiley')
         #self.smiley.reparentTo(self.render)
         #self.smiley.setPos(0, 10.0, 0)
 
-        self.character = [Actor(), Actor()]
+        self.character = [Actor(), Actor(), Actor()]
 
         self.character[0].loadModel('models/dekiruo/dekiruo')
         self.character[0].reparentTo(self.render)
-        self.character[0].loadAnims({'anim': 'models/dekiruo/dekiruo-Anim_anger'})
-        self.character[0].play('anim')
-        self.character[0].pose('anim', 0)
+        self.character[0].loadAnims({'normal': 'models/dekiruo/dekiruo-Anim_normal'})
+        self.character[0].loadAnims({'anger': 'models/dekiruo/dekiruo-Anim_anger'})
+        self.character[0].loadAnims({'sadness2crying': 'models/dekiruo/dekiruo-Anim_sadness2crying'})
+        self.character[0].loadAnims({'sleep': 'models/dekiruo/dekiruo-Anim_sleep'})
+        self.character[0].loadAnims({'smile': 'models/dekiruo/dekiruo-Anim_smile'})
+        self.character[0].loadAnims({'surprised': 'models/dekiruo/dekiruo-Anim_surprised'})
 
-        self.character[1].loadModel('models/dekiruo/dekinaio')
+        self.character[1].loadModel('models/dekinaio/dekinaio')
         self.character[1].reparentTo(self.render)
+        self.character[1].loadAnims({'normal': 'models/dekinaio/dekinaio-Anim_normal'})
+        self.character[1].loadAnims({'anger': 'models/dekinaio/dekinaio-Anim_anger'})
+        self.character[1].loadAnims({'sadness2crying': 'models/dekinaio/dekinaio-Anim_sadness2crying'})
+        self.character[1].loadAnims({'sleep': 'models/dekinaio/dekinaio-Anim_sleep'})
+        self.character[1].loadAnims({'smile': 'models/dekinaio/dekinaio-Anim_smile'})
+        self.character[1].loadAnims({'surprised': 'models/dekinaio/dekinaio-Anim_surprised'})
 
-        #print self.character.getNumFrames('anim')
-        #self.character.setHpr(0.0, 0.0, 0.0) # front
-        #self.character.setHpr(-45.0, 0.0, 0.0) # left
-        #self.character[0].setHpr(45.0, 0.0, 0.0) # right
-        self.character[0].setHpr(-45.0, 0.0, 0.0) # left
-        self.character[1].setHpr(45.0, 0.0, 0.0) # right
-
-        # check model info
-        #self.character.ls()
-        #self.character.listJoints()
-        #node = self.character.find('**/*modelRoot')
-        #geom_node = node.getChildren()[0].node()
-        #geoms = geom_node.getGeoms()
-        #for child in node.getChildren():
-        #    print child
-
-        c0_p1 = (0.1, -0.1)
-        c0_p2 = (0.1, 0.2)
-        c1_p1 = (-0.5, -0.1)
-        c1_p2 = (-0.5, 0.2)
-
-        self.updateNamePos(self.character[0])
-        self.fit(self.character[0], c0_p1, c0_p2)
-        self.updateNamePos(self.character[1])
-        self.fit(self.character[1], c1_p1, c1_p2)
-
-        #self.taskMgr.add(self.updateNamePos, 'name pos update 0', extraArgs=[self.character[0]])
-        #self.taskMgr.add(self.fit, 'fit pos update 0', extraArgs=[self.character[0], c0_p1, c0_p2])
-        #self.taskMgr.add(self.updateNamePos, 'name pos update 1', extraArgs=[self.character[1]])
-        #self.taskMgr.add(self.fit, 'fit pos update 1', extraArgs=[self.character[1], c1_p1, c1_p2])
-
-        # These allow you to change cartooning parameters in realtime
         self.accept("escape", sys.exit, [0])
-        self.accept("arrow_up", self.camera_f) #self.increaseSeparation)
-        self.accept("arrow_down", self.camera_b) #self.decreaseSeparation)
-        self.accept("arrow_left", self.camera_l) #self.increaseCutoff)
-        self.accept("arrow_right", self.camera_r) #self.decreaseCutoff)
+        self.accept("arrow_up", self.camera_f)
+        self.accept("arrow_down", self.camera_b)
+        self.accept("arrow_left", self.camera_l)
+        self.accept("arrow_right", self.camera_r)
+        self.accept("m", self.make)
+        self.accept("c", self.check)
+
+    def make(self):
+        # load xml
+        info = ComicInfo.read('xmls/OL_Lunch_033_r_03.xml')
+        for i, chara in enumerate(info.findall('character')):
+            coord = chara.find('face').attrib
+            dir = coord.get('dir')
+            emo = coord.get('emo')
+            x1 = float(coord.get('x1')) * 2.0 - 1.0
+            y1 = float(coord.get('y1')) * -2.0 + 1.0
+            x2 = float(coord.get('x2')) * 2.0 - 1.0
+            y2 = float(coord.get('y2')) * -2.0 + 1.0
+
+            # set position
+            p1, p2 = ((x1+x2)/2.0, y2),  ((x1+x2)/2.0, y1)
+            self.fit(self.character[i], p1, p2)
+
+            # set direction front = 0.0, left = -45.0, right = 45.0, rear = 180.0
+            if dir == 'left':
+                h = random.uniform(-45.0, -100.0)
+            elif dir == 'right':
+                h = random.uniform(45.0, 100.0)
+            elif dir == 'front':
+                h = random.uniform(-10.0, 10.0)
+            elif dir == 'rear':
+                h = random.uniform(170.0, 190.0)
+            self.character[i].setHpr(h, 0.0, 0.0)
+
+            # set emotion
+            #emo = 'normal'
+            self.character[i].play(emo)
+            self.character[i].pose(self.character[i].getCurrentAnim(), random.randrange(0, 99))
+
+            # debug
+            print dir, emo
+            #OnscreenText(text='+', fg=(0, 0, 1, 1), pos=(x1, y1), scale=.05)
+            #OnscreenText(text='+', fg=(0, 0, 1, 1), pos=(x1, y2), scale=.05)
+            #OnscreenText(text='+', fg=(0, 0, 1, 1), pos=(x2, y2), scale=.05)
+            #OnscreenText(text='+', fg=(0, 0, 1, 1), pos=(x2, y1), scale=.05)
+            #OnscreenText(text='P1', fg=(0, 0, 1, 1), pos=(p1[0], p1[1]), scale=.05)
+            #OnscreenText(text='P2', fg=(0, 0, 1, 1), pos=(p2[0], p2[1]), scale=.05)
+            #OnscreenText(text='camera: ' + str(self.camera.getPos()), fg=(1, 0, 0, 1), pos=(-0.5, -0.95), scale=.05)
+
+            self.saveImage()
+
+    def saveImage(self):
+        self.graphicsEngine.renderFrame()
+        image = PNMImage()
+        dr = self.camNode.getDisplayRegion(0)
+        dr.getScreenshot(image)
+        image.write(Filename('testImg.png'))
+
+        # process for skeltonization
+        img = cv2.imread('testImg.png', -1)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray[gray < 127] = 0
+        gray[gray >= 127] = 255
+
+        kernel = np.ones((6, 6), np.uint8)
+        gray = cv2.erode(gray, kernel)
+        gray = cv2.dilate(gray, kernel)
+
+        cv2.imwrite("testImg.png", gray)
+
+
+    def check(self):
+        # check model info
+        i = 0
+        self.character[i].ls()
+        self.character[i].listJoints()
+        node = self.character[i].find('**/*modelRoot')
+        geom_node = node.getChildren()[0].node()
+        geoms = geom_node.getGeoms()
+        for child in node.getChildren():
+            print child
 
     def camera_f(self):
         pos = self.camera.getPos(self.render)
@@ -169,76 +206,6 @@ class ToonMaker(ShowBase):
     def camera_l(self):
         pos = self.camera.getPos(self.render)
         self.camera.setPos(pos[0]-0.1, pos[1], pos[2])
-
-    def increaseSeparation(self):
-        self.separation = self.separation * 1.11111111
-        print("separation: %f" % (self.separation))
-        self.drawnScene.setShaderInput(
-            "separation", LVecBase4(self.separation, 0, self.separation, 0))
-
-    def decreaseSeparation(self):
-        self.separation = self.separation * 0.90000000
-        print("separation: %f" % (self.separation))
-        self.drawnScene.setShaderInput(
-            "separation", LVecBase4(self.separation, 0, self.separation, 0))
-
-    def increaseCutoff(self):
-        self.cutoff = self.cutoff * 1.11111111
-        print("cutoff: %f" % (self.cutoff))
-        self.drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
-
-    def decreaseCutoff(self):
-        self.cutoff = self.cutoff * 0.90000000
-        print("cutoff: %f" % (self.cutoff))
-        self.drawnScene.setShaderInput("cutoff", LVecBase4(self.cutoff))
-
-    def map3dToAspect2d(self, node, point):
-        """Maps the indicated 3-d point (a Point3), which is relative to
-        the indicated NodePath, to the corresponding point in the aspect2d
-        scene graph. Returns the corresponding Point3 in aspect2d.
-        Returns None if the point is not onscreen. """
-
-        # Convert the point to the 3-d space of the camera
-        p3 = self.camera.getRelativePoint(node, point)
-        # Convert it through the lens to render2d coordinates
-        p2 = Point2()
-        if not self.camLens.project(p3, p2):
-           return None
-        r2d = Point3(p2[0], 0, p2[1])
-        # And then convert it to aspect2d coordinates
-        a2d = self.aspect2d.getRelativePoint(self.render2d, r2d)
-        return a2d
-
-
-    def updateNamePos(self, c):
-        #bound = c.getBounds()
-        #r = bound.getRadius()
-        #cp = c.getPos(self.render)
-        #p1 = cp + Point3(0.0, 0.0, -r)
-        #p2 = cp + Point3(0.0, 0.0, r)
-        n1 = c.exposeJoint(None, "modelRoot", "Head")
-        n2 = c.exposeJoint(None, "modelRoot", "Eyes")
-        p1 = n1.getPos(self.render)
-        p2 = n2.getPos(self.render)
-
-        # show 2d points
-        pos1 = self.map3dToAspect2d(self.render, p1)
-        if pos1 == None:
-            self.label1.hide()
-        else:
-            self.label1['pos'] = (pos1[0], pos1[2])
-            self.label1.show()
-        pos2 = self.map3dToAspect2d(self.render, p2)
-        if pos2 == None:
-            self.label2.hide()
-        else:
-            self.label2['pos'] = (pos2[0], pos2[2])
-            self.label2.show()
-
-        cam_pos = self.camera.getPos()
-        self.info3['text'] = 'camera: ' + str(cam_pos)
-
-        return Task.cont
 
     def fit(self, c, p1, p2):
         #bound = c.getBounds()
@@ -279,14 +246,6 @@ class ToonMaker(ShowBase):
 
 
         c.setPos(p)
-
-        # show 2d points
-        self.label3['pos'] = (p1[0], p1[1])
-        self.label3.show()
-        self.label4['pos'] = (p2[0], p2[1])
-        self.label4.show()
-
-        return Task.cont
 
 t = ToonMaker()
 t.run()

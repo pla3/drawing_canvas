@@ -102,8 +102,8 @@ class MainFrame(wx.Frame):
 
     def _drawSkelton(self):
         # load an image
-        img = cv2.imread('testImg_mikuface.png', -1)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        #img = cv2.imread('testImg_mikuface.png', cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread('testImg.png', cv2.IMREAD_GRAYSCALE)
         img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
         img = cv2.bitwise_not(img)
         h, w = img.shape[:2]

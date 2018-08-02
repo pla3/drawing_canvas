@@ -118,10 +118,6 @@ class ToonMaker(ShowBase):
         self.character = Actor()
         #self.character.loadModel('models/miku/tda_miku')
         #self.character.loadAnims({'anim': 'models/miku/tda_miku-Anim0'})
-        self.character.loadModel('models/dekiruo/dekiruo')
-        self.character.loadAnims({'anim': 'models/dekiruo/dekiruo-Anim_anger'})
-        self.character.reparentTo(self.render)
-        self.character.ls()
         #self.character.listJoints()
         #node = self.character.find('**/*modelRoot')
         #geom_node = node.getChildren()[0].node()
@@ -129,8 +125,44 @@ class ToonMaker(ShowBase):
         #for child in node.getChildren():
         #    print child
 
-        self.character.play('anim')
-        self.character.pose('anim', 0)
+        self.character.loadModel('models/dekiruo/dekiruo')
+        self.character.reparentTo(self.render)
+        self.character.ls()
+
+        self.character.loadAnims({'normal': 'models/dekiruo/dekiruo-Anim_normal'})
+        self.character.play('normal')
+        #self.character.loadAnims({'anger': 'models/dekiruo/dekiruo-Anim_anger'})
+        #self.character.play('anger')
+        #self.character.loadAnims({'sadness2crying': 'models/dekiruo/dekiruo-Anim_sadness2crying'})
+        #self.character.play('sadness2crying')
+        #self.character.loadAnims({'sleep': 'models/dekiruo/dekiruo-Anim_sleep'})
+        #self.character.play('sleep')
+        #self.character.loadAnims({'smile': 'models/dekiruo/dekiruo-Anim_smile'})
+        #self.character.play('smile')
+        #self.character.loadAnims({'surprised': 'models/dekiruo/dekiruo-Anim_surprised'})
+        #self.character.play('surprised')
+
+        #self.character.loadModel('models/dekinaio/dekinaio')
+        #self.character.reparentTo(self.render)
+        #self.character.ls()
+
+        #self.character.loadAnims({'normal': 'models/dekinaio/dekinaio-Anim_normal'})
+        #self.character.play('normal')
+        #self.character.loadAnims({'anger': 'models/dekinaio/dekinaio-Anim_anger'})
+        #self.character.play('anger')
+        #self.character.loadAnims({'sadness2crying': 'models/dekinaio/dekinaio-Anim_sadness2crying'})
+        #self.character.play('sadness2crying')
+        #self.character.loadAnims({'sleep': 'models/dekinaio/dekinaio-Anim_sleep'})
+        #self.character.play('sleep')
+        #self.character.loadAnims({'smile': 'models/dekinaio/dekinaio-Anim_smile'})
+        #self.character.play('smile')
+        #self.character.loadAnims({'surprised': 'models/dekinaio/dekinaio-Anim_surprised'})
+        #self.character.play('surprised')
+
+        #anim =  self.character.getCurrentAnim()
+        #frames = self.character.getNumFrames(anim)
+        #print anim, frames
+        #self.character.pose(anim, int(frames * 0.9))
 
         # Create smiley's node to indicate 3d points
         self.smileyActor1 = self.render.attachNewNode('SmileyActorNode1')

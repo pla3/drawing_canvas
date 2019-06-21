@@ -11,12 +11,12 @@ from line_segmentation import *
 from line_simplification import *
 from generators import SceneGenerator, BalloonGenerator
 
-ID_MAINFRAME = wx.NewId()
-ID_FILE_LOAD = wx.NewId()
-ID_FILE_LOAD_R = wx.NewId()
-ID_FILE_SAVE_PNG = wx.NewId()
-ID_FILE_SAVE_SVG = wx.NewId()
-ID_FILE_SAVE_PNGALL = wx.NewId()
+ID_MAINFRAME = wx.NewIdRef()
+ID_FILE_LOAD = wx.NewIdRef()
+ID_FILE_LOAD_R = wx.NewIdRef()
+ID_FILE_SAVE_PNG = wx.NewIdRef()
+ID_FILE_SAVE_SVG = wx.NewIdRef()
+ID_FILE_SAVE_PNGALL = wx.NewIdRef()
 
 class MainFrame(wx.Frame):
 
@@ -63,7 +63,7 @@ class MainFrame(wx.Frame):
         if id == ID_FILE_LOAD:
             file_dialog = wx.FileDialog(self, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST, wildcard="XML files (*.xml)|*.xml", message='xmlファイルを指定')
             if file_dialog.ShowModal() == wx.ID_CANCEL: return
-            path = file_dialog.GetPath().encode('utf-8')
+            path = file_dialog.GetPath()
             try:
                 self.Make(path)
             except IOError:
@@ -72,7 +72,7 @@ class MainFrame(wx.Frame):
             file_dialog = wx.FileDialog(self, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
                                         wildcard="XML files (*.xml)|*.xml", message='xmlファイルを指定')
             if file_dialog.ShowModal() == wx.ID_CANCEL: return
-            path = file_dialog.GetPath().encode('utf-8')
+            path = file_dialog.GetPath()
             try:
                 self.Make(path, reverse=True)
             except IOError:
@@ -80,24 +80,24 @@ class MainFrame(wx.Frame):
         elif id == ID_FILE_SAVE_PNG:
             file_dialog = wx.FileDialog(self, style=wx.FD_SAVE, wildcard="XML files (*.png)|*.png")
             if file_dialog.ShowModal() == wx.ID_CANCEL: return
-            path = file_dialog.GetPath().encode('utf-8')
+            path = file_dialog.GetPath()
             try:
                 self.SaveAsImage(path)
             except IOError:
                 wx.LogError("Cannot save file '%s'." % file_dialog.GetFilename())
         elif id == ID_FILE_SAVE_SVG:
-            print 'saved'
+            print('saved')
             self.SaveAsSVG()
         elif id == ID_FILE_SAVE_PNGALL:
             dir_dialog = wx.DirDialog(self, style=wx.DD_CHANGE_DIR, message='コマディレクトリを指定')
             if dir_dialog.ShowModal() == wx.ID_CANCEL: return
-            dir = dir_dialog.GetPath().encode('utf-8')
-            print 'converting...',
+            dir = dir_dialog.GetPath()
+            print('converting...')
             self.ConvertAsImage(dir)
-            print 'done'
+            print('done')
 
     def OnExit(self, event):
-        print 'good bye'
+        print('good bye')
         sys.exit()
 
     def OnSize(self, event):

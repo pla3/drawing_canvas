@@ -19,8 +19,8 @@ import numpy as np
   @return Point (x, y)
 '''
 def i2p(i, width):
-    x = i % width
-    y = i / width
+    x = int(i % width)
+    y = int(i / width)
     return (x, y)
 
 
@@ -33,8 +33,8 @@ def findNeighbor(focusIdx, ignoreIdx, startDir, offset, width, height, bNeighbor
         ti = (i + startDir) % 8
         if (bNeighborType4 is True and ti % 2 != 0): continue
 
-        x = offset[ti][0] + (focusIdx % width)
-        y = offset[ti][1] + (focusIdx / width)
+        x = offset[ti][0] + int(focusIdx % width)
+        y = offset[ti][1] + int(focusIdx / width)
         testIdx = y * width + x
 
         # tests:
@@ -47,8 +47,8 @@ def findNeighbor(focusIdx, ignoreIdx, startDir, offset, width, height, bNeighbor
 # (function) get direction
 def getDirection(focusIdx, targetIdx, offset, width):
     for e in offset:
-        x = e[0] + (focusIdx % width)
-        y = e[1] + (focusIdx / width)
+        x = e[0] + int(focusIdx % width)
+        y = e[1] + int(focusIdx / width)
         testIdx = y * width + x
         if (testIdx == targetIdx):
             return e[2]
@@ -169,7 +169,7 @@ def divideBranchedChain(pix,  width, height, bNeighborType4):
 
                     if chainPts: dstBuf.append(chainPts)
             except ValueError as e:
-                print e
+                print(e)
                 return None
 
     return dstBuf

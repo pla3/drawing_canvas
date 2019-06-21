@@ -2,8 +2,6 @@
 #! -*- coding: utf-8 -*-
 
 from skimage.morphology import skeletonize
-import numpy as np
-import cv2
 from line_segmentation import *
 from line_simplification import *
 

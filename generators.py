@@ -121,7 +121,7 @@ class SceneGenerator():
         for i, chara in enumerate(characters):
             if i >= len(self.actors):
                 name = os.path.splitext(xml_path)[0].split('/')[-1]
-                print name
+                print(name)
                 break
             actor = self.actors[i]
 

@@ -88,7 +88,7 @@ class SceneGenerator():
         #self.smiley.reparentTo(self.render)
         #self.smiley.setPos(0, 10.0, 0)
 
-        self.actors = [Actor(), Actor(), Actor(), Actor(), Actor()]
+        self.actors = [Actor(), Actor(), Actor(), Actor()]
 
         self.actors[0].loadModel('models/dekiruo/dekiruo')
         self.actors[0].reparentTo(self.base.render)
@@ -108,6 +108,59 @@ class SceneGenerator():
             self.actors[i].loadAnims({'sleep': 'models/dekinaio/dekinaio-Anim_sleep'})
             self.actors[i].loadAnims({'smile': 'models/dekinaio/dekinaio-Anim_smile'})
             self.actors[i].loadAnims({'surprised': 'models/dekinaio/dekinaio-Anim_surprised'})
+
+        self.info = None  # frame集合体(page)のxml
+        self.actors_dict = {} # 名前付けされた役者
+
+    # xmlから場面を作る。(現時点では登場人物の列挙)
+    def buildScene(self, reverse=False):
+        characters = self.info.findall('.//character')
+        if reverse is True: characters.reverse()
+
+        if len(characters) > len(self.actors):
+            print('character numbers over')
+            return
+
+        if len(characters) == 1:
+            self.actors[0].setPos((0, -100.0, 0))
+            self.actors_dict[characters[0].find('name').text] = self.actors[0]
+        elif len(characters) == 2:
+            self.actors[0].setPos((-10.0, -100.0, 0))
+            self.actors[1].setPos((10.0, -100.0, 0))
+            self.actors_dict[characters[0].find('name').text] = self.actors[0]
+            self.actors_dict[characters[1].find('name').text] = self.actors[1]
+        elif len(characters) == 3:
+            self.actors[0].setPos((0.0, -100.0, 0))
+            self.actors[1].setPos((-15.0, -100.0, 0))
+            self.actors[2].setPos((15.0, -100.0, 0))
+            self.actors_dict[characters[0].find('name').text] = self.actors[0]
+            self.actors_dict[characters[1].find('name').text] = self.actors[1]
+            self.actors_dict[characters[2].find('name').text] = self.actors[2]
+        elif len(characters) == 4:
+            self.actors[0].setPos((10.0, -100.0, 0))
+            self.actors[1].setPos((-10.0, -100.0, 0))
+            self.actors[2].setPos((20.0, -100.0, 0))
+            self.actors[3].setPos((-20.0, -100.0, 0))
+            self.actors_dict[characters[0].find('name').text] = self.actors[0]
+            self.actors_dict[characters[1].find('name').text] = self.actors[1]
+            self.actors_dict[characters[2].find('name').text] = self.actors[2]
+            self.actors_dict[characters[3].find('name').text] = self.actors[3]
+
+    def makeFrames(self):
+        for i, frame in enumerate(self.info.findall('.//frame')):
+
+            # コマ内の登場人物の表情の変更
+            for chara in frame.findall('character'):
+                actor = self.actors_dict[chara.find('name').text]
+                emo = chara.find('face').attrib['emo']
+                # 表情をセット
+                actor.play('normal')
+                actor.pose(self.actors[i].getCurrentAnim(), 0)
+                actor.play(emo)
+                actor.pose(self.actors[i].getCurrentAnim(), random.randrange(0, 99))
+
+            print('frame_'+f'zero padding: {i:02}'+'.png')
+            self.saveImage('frame_'+f'zero padding: {i:02}'+'.png')
 
     def make(self, xml_path, reverse=False):
         self.loadXml(xml_path)
@@ -168,19 +221,19 @@ class SceneGenerator():
         self.saveImage()
 
     def loadXml(self, xmlpath):
-        self.info = ComicInfo.read(xmlpath)
+        self.info = ComicInfo.read_page(xmlpath)
 
-    def saveImage(self):
+    def saveImage(self, path='testImg.png'):
         self.base.graphicsEngine.renderFrame() # Rendering the frame
         self.base.graphicsEngine.renderFrame() # Rendering the frame
         image = PNMImage()
         dr = self.base.camNode.getDisplayRegion(0)
         dr.getScreenshot(image)
         image.removeAlpha()
-        image.write(Filename('testImg.png'))
+        image.write(Filename(path))
 
         # pre process for skeltonization
-        gray = cv2.imread('testImg.png', cv2.IMREAD_GRAYSCALE)
+        gray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
         gray[gray < 150] = 0
         gray[gray >= 150] = 255
         kernel = np.ones((3, 3), np.uint8)
@@ -188,7 +241,7 @@ class SceneGenerator():
         #gray = cv2.dilate(gray, kernel)
         #gray = cv2.resize(gray, (gray.shape[1]/2, gray.shape[0]/2))
         
-        cv2.imwrite('testImg.png', gray)
+        cv2.imwrite(path, gray)
         '''
         '''
 

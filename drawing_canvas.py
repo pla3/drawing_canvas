@@ -159,8 +159,11 @@ class MainFrame(wx.Frame):
 
     def Make(self, xml_path, reverse=False):
         # draw characters
-        self.sceneGenerator.make(xml_path, reverse)
+        self.sceneGenerator.loadXml(xml_path)
+        self.sceneGenerator.buildScene(reverse)
+        self.sceneGenerator.makeFrames()
 
+        '''
         img = cv2.imread('testImg.png', cv2.IMREAD_GRAYSCALE)
         h, w = img.shape[:2]
         self.SetSize(wx.Size(w, h+20)) # TODO ４枚分panelをつくってそのdcに描くべき
@@ -180,6 +183,7 @@ class MainFrame(wx.Frame):
         self.Update()
         self.Refresh()
         self.Update()
+        '''
 
     def _drawSkelton(self):
         # load an image
